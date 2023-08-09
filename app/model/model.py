@@ -1,8 +1,11 @@
-from book import ContentType
+# from book import ContentType
 
 class Model:
+    MODEL_ROLE_TRANSLATE_PROMPT = '你是一个翻译引擎，你只可以翻译文本，不要解释。另外，对于姓名、地址、超链接、公式、论文的引用等内容可以不用翻译直接返回原文'
+    MODEL_ROLE_TRANSLATE_PROMPT_plus =  MODEL_ROLE_TRANSLATE_PROMPT + '但是，对于较长的段落和句子，除了翻译外可以适当引申。'
+   
     def make_text_prompt(self, text: str, target_language: str) -> str:
-        return f"翻译为{target_language},以翻译结果直接返回：{text}"
+        return f"将目标文本翻译为{target_language}，不要做过多解释，目标文本内容是：{text}"
 
     def make_table_prompt(self, table: str, target_language: str) -> str:
         return f"翻译为{target_language}，保持间距（空格，分隔符），以表格形式返回：\n{table}"

@@ -2,7 +2,6 @@ import openai
 import requests
 import simplejson
 import time
-
 from model import Model
 from utils import LOG
 
@@ -20,7 +19,7 @@ class GLMModel(Model):
                     response = openai.ChatCompletion.create(
                         model=self.model,
                         messages=[
-                            {"role":"system","content":"你是一个翻译专家，不要对单词或文本有太多展开的解释，而是直接返回翻译的结果,比如如果问题是‘apple’，那返回内容应该是‘苹果’。另外如果原文是无意义的或包含代码，请直接返回原文"},
+                            {"role":"system","content": Model.MODEL_ROLE_TRANSLATE_PROMPT},
                             {"role": "user", "content": prompt}
                         ]
                     )
