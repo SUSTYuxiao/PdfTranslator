@@ -1,3 +1,13 @@
+
+
+
+logs/
+temp/
+.DS_STORE
+*.yaml
+
+
+# 以下是python默认模版
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
