@@ -94,7 +94,7 @@ def getModel(config):
 
 
 config_data = make_sidebar()
-store_config(config_data)
+config_file_path = store_config(config_data)
 file_exists = os.path.isfile(config_file_path)
 
 if not file_exists:
