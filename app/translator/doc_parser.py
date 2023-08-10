@@ -47,8 +47,10 @@ class DocParser:
     
     
     def process_paragraph(self,paragraph, is_count_mode: bool):
-            if paragraph in self.processed_paragraphs:
+            paragraph_hash = hash(paragraph.text)
+            if paragraph_hash in self.processed_paragraphs:  # 更改为检查段落的哈希值
                 return
+            self.processed_paragraphs.add(paragraph_hash)
             # 检查段落中的每一个运行元素
             for run in paragraph.runs:
                 # 如果运行元素包含图片或数学公式，跳过这个段落
@@ -120,6 +122,7 @@ class DocParser:
         self.process_all_paragraph(doc, True)
         self.progress.setAll(self.taskConut)
 
+        self.processed_paragraphs = set()  # 添加这行代码来存储已经处理过的段落
         self.process_tables(doc, False)
         self.process_all_paragraph(doc, False)
         

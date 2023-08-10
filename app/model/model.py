@@ -5,7 +5,7 @@ class Model:
     MODEL_ROLE_TRANSLATE_PROMPT_plus =  MODEL_ROLE_TRANSLATE_PROMPT + '但是，对于较长的段落和句子，除了翻译外可以适当引申。'
    
     def make_text_prompt(self, text: str, target_language: str) -> str:
-        return f"将目标文本翻译为{target_language}，不要做过多解释，目标文本内容是：{text}"
+        return f"将目标文本翻译为{target_language}，不要做过多解释，目标文本内容是：{text}。如果部分内容已经是{target_language}，不需要翻译对应内容"
 
     def make_table_prompt(self, table: str, target_language: str) -> str:
         return f"翻译为{target_language}，保持间距（空格，分隔符），以表格形式返回：\n{table}"

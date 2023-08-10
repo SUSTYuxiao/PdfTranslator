@@ -10,41 +10,66 @@ from model import GLMModel, OpenAIModel
 # config_file_name = st.sidebar.text_input('Config', 'GUI-config.yaml')
 data = {}
 
-def store_config( data: dict):
+def get_config_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_file_name = 'GUI-config.yaml'
     config_dir = os.path.join(current_dir, 'config')
     config_file_path = os.path.join(config_dir, config_file_name)
+    return config_file_path
+
+def load_config():
+    config_file_path = get_config_path()
+    with open(config_file_path, 'r') as infile:
+        data = yaml.safe_load(infile)
+    # 检查数据是否为None，如果是，返回空字典
+    if data is None:
+        data = {}
+    return data
+
+def store_config( data: dict):
+    config_file_path = get_config_path()
     os.makedirs(os.path.dirname(config_file_path), exist_ok=True)
     with open(config_file_path, 'w+') as outfile:
         yaml.dump(data, outfile, default_flow_style=False)
     return config_file_path
 
 def make_sidebar():
-    model_type = st.sidebar.selectbox('Model Type', ['GLMModel', 'OpenAIModel'])
+    # 加载配置数据
+    data = load_config()
+
+    model_type = data.get('model_type_name', 'GLMModel')
+    model_type = st.sidebar.selectbox('Model Type', ['GLMModel', 'OpenAIModel'], index=['GLMModel', 'OpenAIModel'].index(model_type))
+    
     # 根据model_type的值显示或隐藏特定的输入字段
     if model_type == 'GLMModel':
-        glm_model_url = st.sidebar.text_input('GLM Model URL', 'http://localhost:8000/v1')
-        timeout = st.sidebar.number_input('Timeout', min_value=1, max_value=1000, value=500)
+        glm_model_url = data[model_type].get('model_url', 'http://localhost:8000/v1')
+        glm_model_url = st.sidebar.text_input('GLM Model URL', glm_model_url)
+        timeout = data[model_type].get('timeout', 500)
+        timeout = st.sidebar.number_input('Timeout', min_value=1, max_value=1000, value=timeout)
         data[model_type] = {
             'model_url': glm_model_url,
             'timeout': timeout,
         }
     else:
-        openai_model = st.sidebar.text_input('OpenAI Model', '')
-        openai_api_key = st.sidebar.text_input('OpenAI API Key', '')
-        api_base = st.sidebar.text_input('OpenAI API base url', '')
-        
+        openai_model = data[model_type].get('model', 'gpt-3.5-turbo')
+        openai_model = st.sidebar.text_input('OpenAI Model', openai_model)
+        openai_api_key = data[model_type].get('api_key', '')
+        openai_api_key = st.sidebar.text_input('OpenAI API Key', openai_api_key)
+        api_base = data[model_type].get('api_base', '')
+        api_base = st.sidebar.text_input('OpenAI API base url', api_base)
+
         data[model_type] = {
             'model': openai_model,
             'api_key': openai_api_key,
             'api_base': api_base,
         }
     data['model_type_name'] = model_type
-    
-    processPageNum = st.sidebar.number_input('页面数限制（预览用）, 0表示无限', 0)
+
+    processPageNum = data.get('processPageNum', 0)
+    processPageNum = st.sidebar.number_input('页面数限制（预览用）, 0表示无限', processPageNum)
     data['processPageNum'] = processPageNum
-    target_language = st.sidebar.text_input('目标语言', "中文")
+    target_language = data.get('target_language', '中文')
+    target_language = st.sidebar.text_input('目标语言', target_language)
     data['target_language'] = target_language
     return data
 
@@ -62,8 +87,14 @@ def getModel(config):
         model = GLMModel(model_url=model_url)
     return model
 
+# config_file_path = get_config_path()
+# file_exists = os.path.isfile(config_file_path)
+# if file_exists:
+#     data = load_config()
+
+
 config_data = make_sidebar()
-config_file_path = store_config(config_data)
+store_config(config_data)
 file_exists = os.path.isfile(config_file_path)
 
 if not file_exists:
