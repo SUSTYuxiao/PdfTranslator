@@ -5,6 +5,35 @@ from translator.doc_parser import DocParser
 from utils import ArgumentParser, ConfigLoader, LOG
 from model import GLMModel, OpenAIModel
 
+from streamlit.report_thread import get_report_ctx
+from streamlit.hashing import _CodeHasher
+from streamlit.server.server import Server
+
+class SessionState(object):
+    def __init__(self, **kwargs):
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
+def get_session_state(**kwargs):
+    """Gets the current session state, creating it if necessary.
+    Returns
+    -------
+    SessionState
+        The current session state.
+    """
+    ctx = get_report_ctx()
+    session_id = ctx.session_id
+    session_info = Server.get_current()._get_session_info(session_id)
+
+    if session_info is None:
+        raise RuntimeError("Couldn't get your Streamlit Session object.")
+
+    this_session = session_info.session
+
+    if not hasattr(this_session, "_custom_session_state"):
+        this_session._custom_session_state = SessionState(**kwargs)
+
+    return this_session._custom_session_state
 # 在streamlit应用的侧边栏中创建输入字段
 
 # config_file_name = st.sidebar.text_input('Config', 'GUI-config.yaml')
@@ -92,64 +121,73 @@ def getModel(config):
 # if file_exists:
 #     data = load_config()
 
+def main():
+    session_state = get_session_state(processed_files=[])
 
-config_data = make_sidebar()
-config_file_path = store_config(config_data)
-file_exists = os.path.isfile(config_file_path)
+    config_data = make_sidebar()
+    config_file_path = store_config(config_data)
+    file_exists = os.path.isfile(config_file_path)
 
-if not file_exists:
-    st.sidebar.warning("请到侧边栏先初始化配置")
-else:
-    # 选择要上传的文件列表
-    uploaded_files = st.file_uploader("选择一个或多个PDF文件", type="pdf", accept_multiple_files=True, help='1234')
-    cur_task_text = st.empty() 
-    progress_text = st.empty() 
-    progress_bar = st.progress(0)
-    progress = Progress(progress_bar, progress_text)
-    temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
-    
-    config_loader = ConfigLoader(config_file_path)
-    config = config_loader.load_config()
-    LOG.info(config)
-    model = getModel(config)
-    processPageNum =  config['processPageNum']
-    target_language =  config['target_language']
+    if not file_exists:
+        st.sidebar.warning("请到侧边栏先初始化配置")
+    else:
+        # 选择要上传的文件列表
+        uploaded_files = st.file_uploader("选择一个或多个PDF文件", type="pdf", accept_multiple_files=True, help='1234')
+        cur_task_text = st.empty() 
+        progress_text = st.empty() 
+        progress_bar = st.progress(0)
+        progress = Progress(progress_bar, progress_text)
+        temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
+        
+        config_loader = ConfigLoader(config_file_path)
+        config = config_loader.load_config()
+        LOG.info(config)
+        model = getModel(config)
+        processPageNum =  config['processPageNum']
+        target_language =  config['target_language']
 
 
-    # 处理上传的文件
-    if uploaded_files is not None:
-        for index, uploaded_file in enumerate(uploaded_files):
-            file_name = uploaded_file.name
-            uploaded_file_path = os.path.join(temp_dir, file_name)
-            os.makedirs(os.path.dirname(uploaded_file_path), exist_ok=True)
-            # 保存PDF文件
-            with open(uploaded_file_path, 'wb') as out:
-                out.write(uploaded_file.getvalue())
+        # 处理上传的文件
+        if uploaded_files is not None:
+            for index, uploaded_file in enumerate(uploaded_files):
+                if uploaded_file.name in session_state.processed_files:
+                    continue  # 如果文件已被处理，跳过处理逻辑
+                file_name = uploaded_file.name
+                uploaded_file_path = os.path.join(temp_dir, file_name)
+                os.makedirs(os.path.dirname(uploaded_file_path), exist_ok=True)
+                # 保存PDF文件
+                with open(uploaded_file_path, 'wb') as out:
+                    out.write(uploaded_file.getvalue())
 
-            # 处理PDF文件
-            cur_task_text.text(f'正在处理第{index+1}个文件：{file_name}')
-            result_docx_file_path= os.path.join(temp_dir, file_name+"_result"+".docx")
-            # 如果服务器缓存，则跳过
-            if not os.path.isfile(result_docx_file_path):
-                docParser = DocParser(model, progress, target_language)
-                docParser.doTrans(
-                    file_name = file_name
-                    ,pdf_input_path=uploaded_file_path
-                    ,result_docx_file_path = result_docx_file_path
-                    , temp_source_path=temp_dir
-                    , endPos=processPageNum
-                    )
-                # 生成下载链接
-                if  os.path.isfile(result_docx_file_path):
-                    with open(result_docx_file_path, 'rb') as f:
-                        st.download_button(
-                            label=f"点击下载{file_name}翻译后的文件",
-                            data=f,
-                            file_name=os.path.basename(result_docx_file_path),
-                            mime='application/octet-stream'
+                # 处理PDF文件
+                cur_task_text.text(f'正在处理第{index+1}个文件：{file_name}')
+                result_docx_file_path= os.path.join(temp_dir, file_name+"_result"+".docx")
+                # 如果服务器缓存，则跳过
+                if not os.path.isfile(result_docx_file_path):
+                    docParser = DocParser(model, progress, target_language)
+                    docParser.doTrans(
+                        file_name = file_name
+                        ,pdf_input_path=uploaded_file_path
+                        ,result_docx_file_path = result_docx_file_path
+                        , temp_source_path=temp_dir
+                        , endPos=processPageNum
                         )
-                    # 删除临时文件
-                    # os.remove(result_docx_file_path)
+                    # 生成下载链接
+                    if  os.path.isfile(result_docx_file_path):
+                        with open(result_docx_file_path, 'rb') as f:
+                            st.download_button(
+                                label=f"点击下载{file_name}翻译后的文件",
+                                data=f,
+                                file_name=os.path.basename(result_docx_file_path),
+                                mime='application/octet-stream'
+                            )
+                        # 删除临时文件
+                        # os.remove(result_docx_file_path)
+
+
+if __name__ == "__main__":
+    main()
+
 
             
 
